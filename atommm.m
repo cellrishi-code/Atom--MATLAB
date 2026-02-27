@@ -1,0 +1,183 @@
+%% Heisenberg Uncertainty Principle Simulation
+% Demonstrates: Delta_x * Delta_p >= hbar/2
+% Shows how narrowing position spread INCREASES momentum spread and vice versa
+
+clear; clc; close all;
+
+%% --- Constants ---
+hbar = 1.0545718e-34;   % Reduced Planck constant (J.s)
+m    = 9.10938e-31;     % Electron mass (kg)
+
+%% --- Gaussian Wave Packet Parameters ---
+x     = linspace(-10e-9, 10e-9, 2048);   % Position grid (meters)
+dx    = x(2) - x(1);
+N     = length(x);
+
+sigma_x_values = [0.3e-9, 0.6e-9, 1.2e-9, 2.4e-9];  % 4 different position spreads
+colors = [1 0.2 0.2; 0.2 0.8 1; 0.2 1 0.4; 1 0.8 0.2];
+x0    = 0;     % Center of wave packet
+k0    = 5e9;   % Central wave number (m^-1)
+
+%% =====================================================================
+%%  FIGURE 1: Position vs Momentum Space side by side
+%% =====================================================================
+fig1 = figure('Name','Heisenberg Uncertainty Principle','Color',[0.05 0.05 0.12],...
+               'Position',[50 50 1300 700]);
+
+for idx = 1:4
+    sigma_x = sigma_x_values(idx);
+
+    %% --- Wave Packet in Position Space ---
+    psi_x = (1/(sigma_x * sqrt(2*pi)))^0.5 * ...
+             exp(-(x - x0).^2 / (4*sigma_x^2)) .* exp(1i*k0*x);
+    prob_x = abs(psi_x).^2;
+
+    %% --- Fourier Transform to Momentum Space ---
+    psi_k  = fftshift(fft(psi_x)) * dx;
+    k      = fftshift(fftfreq_custom(N, dx));
+    prob_k = abs(psi_k).^2;
+    prob_k = prob_k / (sum(prob_k) * (k(2)-k(1)));  % normalize
+
+    %% --- Compute uncertainties ---
+    delta_x = sigma_x;                        % position std dev
+    delta_p = hbar / (2 * sigma_x);           % minimum uncertainty
+    product  = delta_x * delta_p;
+
+    %% --- Position Space Plot ---
+    subplot(2, 4, idx);
+    set(gca,'Color',[0.05 0.05 0.12],'XColor','w','YColor','w','FontSize',9);
+    hold on;
+    fill([x*1e9, fliplr(x*1e9)], [prob_x/max(prob_x), zeros(1,N)], ...
+         colors(idx,:), 'FaceAlpha', 0.3, 'EdgeColor','none');
+    plot(x*1e9, prob_x/max(prob_x), 'Color', colors(idx,:), 'LineWidth', 1.8);
+
+    % Mark +/- sigma_x
+    xline(sigma_x*1e9,  '--', 'Color', [1 1 1 0.5], 'LineWidth', 1);
+    xline(-sigma_x*1e9, '--', 'Color', [1 1 1 0.5], 'LineWidth', 1);
+
+    title(sprintf('\\sigma_x = %.1f nm', sigma_x*1e9), ...
+          'Color','white','FontSize',10,'FontWeight','bold');
+    xlabel('Position x (nm)', 'Color','white');
+    ylabel('|\psi(x)|^2 (norm.)', 'Color','white');
+    xlim([-8 8]);
+    text(0.05, 0.88, sprintf('\\Deltax = %.2f nm', delta_x*1e9), ...
+         'Units','normalized','Color',colors(idx,:),'FontSize',8,'FontWeight','bold');
+    box on;
+
+    %% --- Momentum Space Plot ---
+    subplot(2, 4, idx+4);
+    set(gca,'Color',[0.05 0.05 0.12],'XColor','w','YColor','w','FontSize',9);
+    hold on;
+    fill([k/1e9, fliplr(k/1e9)], [prob_k/max(prob_k), zeros(1,N)], ...
+         colors(idx,:), 'FaceAlpha', 0.3, 'EdgeColor','none');
+    plot(k/1e9, prob_k/max(prob_k), 'Color', colors(idx,:), 'LineWidth', 1.8);
+
+    title(sprintf('\\sigma_p = %.2f nm^{-1}', delta_p/hbar*1e-9), ...
+          'Color','white','FontSize',10,'FontWeight','bold');
+    xlabel('Wave number k (nm^{-1})', 'Color','white');
+    ylabel('|\phi(k)|^2 (norm.)', 'Color','white');
+    xlim([k0/1e9 - 10, k0/1e9 + 10]);
+
+    text(0.05, 0.88, sprintf('\\Deltap = %.2f\\hbar nm^{-1}', delta_p/hbar*1e-9), ...
+         'Units','normalized','Color',colors(idx,:),'FontSize',8,'FontWeight','bold');
+
+    % Uncertainty product label
+    text(0.05, 0.75, sprintf('\\Deltax\\Deltap = %.3f \\hbar', product/hbar), ...
+         'Units','normalized','Color',[1 1 0.4],'FontSize',8,'FontWeight','bold');
+    box on;
+end
+
+% Main title
+annotation('textbox',[0.25 0.94 0.5 0.05],'String',...
+    'Heisenberg Uncertainty Principle:  \Deltax \cdot \Deltap \geq \hbar/2',...
+    'Color','white','FontSize',14,'FontWeight','bold',...
+    'HorizontalAlignment','center','EdgeColor','none','BackgroundColor','none');
+
+%% =====================================================================
+%%  FIGURE 2: Trade-off Curve  (Delta_x vs Delta_p)
+%% =====================================================================
+fig2 = figure('Name','Uncertainty Trade-off Curve','Color',[0.05 0.05 0.12],...
+               'Position',[100 150 700 550]);
+ax2 = axes('Color',[0.05 0.05 0.12],'XColor','w','YColor','w',...
+            'GridColor',[0.3 0.3 0.3],'FontSize',11);
+hold on; grid on;
+
+sigma_range = linspace(0.1e-9, 5e-9, 500);
+delta_p_min = hbar ./ (2 * sigma_range);
+
+% Heisenberg limit (boundary curve)
+fill([sigma_range*1e9, fliplr(sigma_range*1e9)], ...
+     [delta_p_min/1e-25, ones(1,500)*max(delta_p_min/1e-25)*1.5], ...
+     [0.3 0.1 0.5], 'FaceAlpha', 0.4, 'EdgeColor', 'none');
+
+plot(sigma_range*1e9, delta_p_min/1e-25, 'w-', 'LineWidth', 2.5);
+text(0.6, 0.85, 'FORBIDDEN REGION', 'Units','normalized', ...
+    'Color',[1 0.5 1],'FontSize',12,'FontWeight','bold');
+text(0.6, 0.35, 'ALLOWED REGION', 'Units','normalized', ...
+    'Color',[0.5 1 0.5],'FontSize',12,'FontWeight','bold');
+text(0.35, 0.58, '\Deltax \cdot \Deltap = \hbar/2  (Minimum Uncertainty)', ...
+    'Units','normalized','Color','yellow','FontSize',9,'Rotation',-30);
+
+% Mark the 4 sigma_x examples
+for idx = 1:4
+    sx = sigma_x_values(idx);
+    dp = hbar / (2*sx);
+    plot(sx*1e9, dp/1e-25, 'o', 'MarkerSize', 12, ...
+         'MarkerFaceColor', colors(idx,:), 'MarkerEdgeColor','white','LineWidth',1.5);
+    text(sx*1e9 + 0.05, dp/1e-25, sprintf('  \\sigma_x=%.1fnm', sx*1e9), ...
+         'Color', colors(idx,:), 'FontSize', 9);
+end
+
+xlabel('\Delta x  (nm)',              'Color','white','FontSize',12);
+ylabel('\Delta p  (×10^{-25} kg·m/s)','Color','white','FontSize',12);
+title('Heisenberg Uncertainty: Trade-off Between \Deltax and \Deltap', ...
+      'Color','white','FontSize',13,'FontWeight','bold');
+
+%% =====================================================================
+%%  FIGURE 3: Animated Wave Packet evolution
+%% =====================================================================
+fig3 = figure('Name','Wave Packet Evolution','Color',[0.05 0.05 0.12],...
+               'Position',[200 200 900 450]);
+ax3 = axes('Color',[0.05 0.05 0.12],'XColor','w','YColor','w','FontSize',11);
+hold on; grid on;
+
+sigma_x_anim = 0.8e-9;
+t_vals = linspace(0, 3e-15, 120);   % time steps (femtoseconds)
+
+disp('Animating wave packet... close figure to stop.');
+
+for t = t_vals
+    if ~isvalid(fig3), break; end
+    cla(ax3);
+
+    % Moving Gaussian wave packet (free particle, dispersion included)
+    v_group = hbar * k0 / m;
+    sigma_t = sigma_x_anim * sqrt(1 + (hbar*t / (2*m*sigma_x_anim^2))^2);
+
+    x_center = v_group * t;
+    psi_t = (1/(sigma_t*sqrt(2*pi)))^0.5 * ...
+             exp(-(x - x_center).^2 / (4*sigma_t^2)) .* exp(1i*(k0*x));
+
+    prob_t  = abs(psi_t).^2;
+    real_t  = real(psi_t);
+
+    fill(ax3, [x*1e9, fliplr(x*1e9)], [prob_t/max(prob_t), zeros(1,N)], ...
+         [0.2 0.6 1.0], 'FaceAlpha', 0.35, 'EdgeColor', 'none');
+    plot(ax3, x*1e9, prob_t/max(prob_t), 'Color', [0.4 0.8 1.0], 'LineWidth', 2);
+    plot(ax3, x*1e9, real_t/max(abs(real_t))*0.8, 'Color', [1 0.6 0.2], 'LineWidth', 1);
+
+    xlabel(ax3, 'Position x (nm)','Color','w','FontSize',11);
+    ylabel(ax3, 'Amplitude (norm.)','Color','w','FontSize',11);
+    title(ax3, sprintf('Wave Packet Spreading  |  t = %.2f fs  |  \\sigma_x = %.2f nm', ...
+          t*1e15, sigma_t*1e9), 'Color','white','FontSize',12,'FontWeight','bold');
+    xlim(ax3, [-8 8]); ylim(ax3, [-1 1.2]);
+
+    legend(ax3, {'|\psi|^2 (probability)','Re[\psi] (wave)'}, ...
+           'TextColor','white','Color',[0.1 0.1 0.2],'FontSize',9,'Location','northeast');
+    drawnow;
+end
+
+%% --- Helper function ---
+function f = fftfreq_custom(n, d)
+    f = [0:floor(n/2)-1, -ceil(n/2):-1] / (n*d);
+end

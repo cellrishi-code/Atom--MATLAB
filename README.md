@@ -158,4 +158,5 @@ Numerical methods
 
 Scientific programming in MATLAB
 
-
+LINKEDIN ID :https://www.linkedin.com/in/rishi-gupta-85bab0232/
+ABOUT ME : https://rishiguptainfo.vercel.app/
